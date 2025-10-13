@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{45BC2916-048F-495B-A116-13189F65E2A0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextToPixelPerfectImage", "ConsoleApp1\TextToPixelPerfectImage.csproj", "{45BC2916-048F-495B-A116-13189F65E2A0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

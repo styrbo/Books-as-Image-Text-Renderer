@@ -1,110 +1,46 @@
 ﻿using ConsoleApp1;
-using SixLabors.Fonts;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
 
-var fontPath = $@"{Environment.CurrentDirectory}\Resources\Minecraftia-Regular v2.ttf";
-var textPath = $@"{Environment.CurrentDirectory}\Resources\test.txt";
-var canvasWidth = 2048;
-var canvasMaxHeight = 10000;
-var maxLettersPerImage = 10000;
-var downscaleFactor = 4;
-float fontSize = 32f;
+var resourcesFolder = $@"{Environment.CurrentDirectory}\Resources\";
+var outputFolder = $@"{resourcesFolder}\Resources\Output\";
+var configPath = $@"{Environment.CurrentDirectory}\Resources\config.json";
 
-Console.WriteLine("start");
+ConsoleDrawer.DrawText("Loading config...");
+if (File.Exists(configPath) == false)
+    return ConsoleDrawer.DrawError("Config file not found");
+var configJson = File.ReadAllText(configPath);
+var config = System.Text.Json.JsonSerializer.Deserialize<Config>(configJson);
+if (config == null)
+    return ConsoleDrawer.DrawError("Config file is invalid");
 
-var backgroundColor = Rgba32.ParseHex("#00000000");
-var textColor = Rgba32.ParseHex("#000000");
+/////////////////////////////////////////////////////////////////
+ConsoleDrawer.DrawText("Loading Font...");
+if(string.IsNullOrEmpty(config.fontPath))
+    return ConsoleDrawer.DrawError("Font path is empty");
+var fontFilePath = Path.Combine(resourcesFolder, config.fontPath);
+if(File.Exists(fontFilePath) == false)
+    return ConsoleDrawer.DrawError("Font file not found");
 
-var drawingOptions = new DrawingOptions {
-    GraphicsOptions = new GraphicsOptions {
-        Antialias = false,
-    },
-};
-var brush = new SolidBrush(textColor);
+var renderer = new ImageRenderer(config, fontFilePath);
+ConsoleDrawer.DrawText("Finding text to render...");
+var files = Directory.EnumerateFiles(resourcesFolder, "*.txt").ToArray();
+ConsoleDrawer.DrawText("Found " + files.Length + " to render");
+ConsoleDrawer.DrawText("Start Mapping...");
+var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-var text = System.IO.File.ReadAllText(textPath);
-var textSegments = RichTextParser.Parse(text, fontSize, TextAlignment.Start);
-var wordsBySegmentId = textSegments.SelectMany(segment => 
-    segment.Text.Split(" ")
-        .Select(word => ($" {word}", Array.IndexOf(textSegments, segment))))
-    .ToArray();
-
-var fontsCollection = textSegments
-    .GroupBy(segment => segment.size)
-    .ToDictionary(group => group.Key, group => {;
-        var collection = new FontCollection().Add(fontPath);
-        return collection.CreateFont(group.Key, FontStyle.Regular);
-    });
-
-var textTotalHeight = 0f;
-var optionsPerSegment = textSegments.Select(segment => {
-    var option = new RichTextOptions(fontsCollection[segment.size]) {
-        LineSpacing = 1.5f,
-        Origin = new PointF(new SizeF(height: textTotalHeight,
-            width: segment.textAlignment == TextAlignment.Center ? canvasWidth / 2f : 0)), // это baseline
-        VerticalAlignment = VerticalAlignment.Top,
-        HorizontalAlignment = (HorizontalAlignment)segment.textAlignment,
-        WordBreaking = WordBreaking.BreakWord,
-        WrappingLength = canvasWidth,
-    };
-    
-    var textSize = TextMeasurer.MeasureSize(segment.Text, option);
-    textTotalHeight += (int)textSize.Height;
-
-    return option;
-}).ToArray();
-
-var builder = new System.Text.StringBuilder();
-var breakPoints = new List<int>();
-for (var i = 0; i < wordsBySegmentId.Length; i++) {
-    var (word, segmentId) = wordsBySegmentId[i];
-    builder.Append(word);
-    var linesCount = TextMeasurer.CountLines(builder.ToString(), optionsPerSegment[segmentId]);
-    if (linesCount > 1) {
-        breakPoints.Add(i);
-        builder.Clear();
-    }
+stopwatch.Stop();
+ConsoleDrawer.DrawText($"Mapping Finished in {stopwatch.Elapsed} Images Output Count: {0}");
+if (ConsoleDrawer.AskPermissionToContinue("Start rendering?") == false) {
+    return 1;
 }
 
-
-var imagesNeededToFitAllText = (int)Math.Ceiling(textTotalHeight / canvasMaxHeight);
-var processedTextHeight = 0;
-/*
-for (int i = 0; i < imagesNeededToFitAllText; i++) {
-    var heightLeft = Math.Min(canvasMaxHeight, (int) Math.Ceiling(textTotalHeight - processedTextHeight));
-    using var image = new Image<Rgba32>(canvasWidth, heightLeft, backgroundColor);
-    image.Mutate(ctx => ctx
-        .DrawText(drawingOptions, richTextOptions, richTextSegmentData.Text, brush, null)
-    );
-    
-    var textSize = TextMeasurer.MeasureSize(richTextSegmentData.Text, richTextOptions);
-    offset.Height += (int)textSize.Height;
+Directory.CreateDirectory(outputFolder);
+foreach (var file in files) {
+    var text = File.ReadAllText(file);
+    var fileName = Path.GetFileNameWithoutExtension(file);
+    renderer.Render(text, fileName);
 }
-
-var offset = Size.Empty;
-foreach (var richTextSegmentData in textSegments) {
-    var collection = new FontCollection().Add(fontPath);
-    var font = collection.CreateFont(richTextSegmentData.size, FontStyle.Regular);
-
-    RichTextOptions richTextOptions = new(font) {
-        LineSpacing = 1.5f,
-        Origin = new PointF(new SizeF(height: offset.Height, width: richTextSegmentData.textAlignment == TextAlignment.Center ? canvasSize.x / 2f : 0)), // это baseline
-        VerticalAlignment = VerticalAlignment.Top,
-        HorizontalAlignment = (HorizontalAlignment) richTextSegmentData.textAlignment,
-        WordBreaking = WordBreaking.BreakWord,
-        WrappingLength = canvasSize.x,
-    };
-}
-
-image.Mutate(ctx => 
-    ctx.Resize(new Size(canvasSize.x / downscaleFactor, canvasSize.y / downscaleFactor), KnownResamplers.NearestNeighbor, false)
-    );
-//downscale at halp size
-image.SaveAsPng(@$"{Environment.CurrentDirectory}\output.png");
 
 Console.WriteLine("finish");
 Console.ReadKey();
-*/
+
+return 0;
